@@ -29,7 +29,7 @@ module.exports = function (angel) {
     let images = JSON.parse(output)
     // sort them by latest first
     images.sort(function (a, b) {
-      return (new Date(a.timestamp.datetime)).valueOf() - (new Date(b.timestamp.datetime)).valueOf()
+      return (new Date(b.timestamp.datetime)).valueOf() - (new Date(a.timestamp.datetime)).valueOf()
     })
     // remove latest keepAmount
     let leftimages = images.splice(0, keepAmount)
