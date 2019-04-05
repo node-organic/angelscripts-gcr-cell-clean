@@ -1,6 +1,5 @@
 const {exec} = require('child_process')
 const path = require('path')
-const moment = require('moment')
 const findSkeletonRoot = require('organic-stem-skeleton-find-root')
 const {forEach} = require('p-iteration')
 const processExit = function (cmd) {
@@ -17,19 +16,27 @@ const processExit = function (cmd) {
 }
 
 module.exports = function (angel) {
-  angel.on('clean-gcr :before :format', async function (angel) {
+  angel.on('clean-gcr :keepAmount', async function (angel) {
     const packagejson = require(path.join(process.cwd(), 'package.json'))
     let repoRoot = await findSkeletonRoot()
     let loadCellInfo = require(path.join(repoRoot, 'cells/node_modules/lib/load-cell-info'))
     let cell = await loadCellInfo(packagejson.name)
     if (!cell.dna.registry || cell.dna.registry.indexOf('gcr.io') === -1) return
     let IMAGE = `${cell.dna.registry}/${cell.name}`
-    let DATE = moment().subtract(angel.cmdData.before, angel.cmdData.format).format('YYYY-MM-DD')
-    let {output} = await processExit(`gcloud container images list-tags ${IMAGE} --limit=999999 --sort-by=TIMESTAMP --filter="timestamp.datetime < '${DATE}'" --format='get(digest)'`)
-    let containerDigests = output.split('\n').filter(v => v)
-    await forEach(containerDigests, function (digest) {
-      return angel.exec(`gcloud container images delete -q --force-delete-tags "${IMAGE}@${digest}"`)
+    let keepAmount = parseInt(angel.cmdData.keepAmount, 10)
+    // get all images from gcr.io
+    let {output} = await processExit(`gcloud container images list-tags ${IMAGE} --limit=999999 --format='json'`)
+    let images = JSON.parse(output)
+    // sort them by latest first
+    images.sort(function (a, b) {
+      return (new Date(a.timestamp.datetime)).valueOf() - (new Date(b.timestamp.datetime)).valueOf()
     })
-    console.log(`gcr.io cleaned for ${IMAGE} done`)
+    // remove latest keepAmount
+    let leftimages = images.splice(0, keepAmount)
+    // any image still in the array is eligable for removal
+    await forEach(images, function (image) {
+      return angel.exec(`gcloud container images delete -q --force-delete-tags "${IMAGE}@${image.digest}"`)
+    })
+    console.log(`gcr.io cleaned for ${IMAGE} done, left ${leftimages.length} images`)
   })
 }

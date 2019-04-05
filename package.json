@@ -6,7 +6,6 @@
   },
   "dependencies": {
     "angelabilities-exec": "^1.0.0",
-    "moment": "^2.24.0",
     "organic-stem-skeleton-find-root": "^1.0.1",
     "p-iteration": "^1.1.8"
   },
